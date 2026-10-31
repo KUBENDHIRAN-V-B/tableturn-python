@@ -1,6 +1,6 @@
 """The floor. A table's state is derived on read from its current seating — `seated` while the party is at
 it, `uncleared` once they have left and nobody has wiped it, `free` otherwise. There is no stored state flag."""
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..clock import Clock
@@ -14,6 +14,12 @@ def get_branch(session: Session, code: str) -> Branch:
     if branch is None:
         raise NoSuchBranch(f"There is no branch {code!r}")
     return branch
+
+
+
+def max_covers(session: Session, branch_id: int) -> int:
+    """The largest table in the branch — the biggest party that could ever be seated."""
+    return int(session.scalar(select(func.max(DiningTable.seats)).where(DiningTable.branch_id == branch_id)) or 0)
 
 
 def describe(session: Session, table: DiningTable, clock: Clock) -> TableOut:
