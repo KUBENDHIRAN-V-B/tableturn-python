@@ -3,9 +3,10 @@ it, `uncleared` once they have left and nobody has wiped it, `free` otherwise. T
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..clock import Clock
+from ..clock import Clock, minutes_between
 from ..errors import NoSuchBranch, NoSuchTable
-from ..models import Branch, DiningTable
+from ..ids import party_public, seating_public
+from ..models import Branch, DiningTable, Seating
 from ..schemas import FloorOut, Section, TableOut, TableState
 
 
@@ -24,22 +25,19 @@ def max_covers(session: Session, branch_id: int) -> int:
 
 def describe(session: Session, table: DiningTable, clock: Clock) -> TableOut:
     if table.current_seating_id is None:
+        return TableOut(no=table.no, seats=table.seats, section=table.section, state="free")
+    # seated while the current seating has no left_at; uncleared once it has (the clear empties current_seating_id and
+    # writes tables.cleared_at, which nothing reads back).
+    seating = session.get(Seating, table.current_seating_id)
+    party_id, seating_id = party_public(seating.party_id), seating_public(seating.id)
+    if seating.left_at is None:
         return TableOut(
-            no=table.no,
-            seats=table.seats,
-            section=table.section,
-            state="free",
+            no=table.no, seats=table.seats, section=table.section, state="seated", party_id=party_id,
+            seating_id=seating_id, seated_minutes=minutes_between(seating.seated_at, clock.now()),
         )
-    # Seating records are introduced in the seating workflow; until then the
-    # current seating reference is the source of truth for occupied tables.
     return TableOut(
-        no=table.no,
-        seats=table.seats,
-        section=table.section,
-        state="seated",
-        party_id=f"W{table.current_seating_id:03d}",
-        seating_id=f"S{table.current_seating_id:03d}",
-        seated_minutes=0,
+        no=table.no, seats=table.seats, section=table.section, state="uncleared", party_id=party_id,
+        seating_id=seating_id,
     )
 
 

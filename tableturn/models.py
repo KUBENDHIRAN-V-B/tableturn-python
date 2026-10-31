@@ -44,3 +44,16 @@ class Party(Base):
     quoted_minutes: Mapped[int] = mapped_column(Integer)
     quoted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     waited_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class Seating(Base):
+    __tablename__ = "seatings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"))
+    party_id: Mapped[int] = mapped_column(ForeignKey("parties.id"))
+    table_id: Mapped[int] = mapped_column(ForeignKey("tables.id"))
+    seated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cleared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    turn_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
