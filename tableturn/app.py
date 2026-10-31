@@ -3,6 +3,8 @@ one error handler, request ids on every request."""
 from contextlib import asynccontextmanager
 import copy
 import json
+import logging
+import sys
 import uuid
 from pathlib import Path
 
@@ -27,6 +29,20 @@ TAGS = [
     {"name": "settings", "description": "The rules in force, and health"},
 ]
 DESCRIPTION = "A restaurant waitlist: parties quoted a wait, seated by size, tables turning over all evening."
+
+log = logging.getLogger("tableturn")
+
+
+def configure_logging() -> None:
+    logging.basicConfig(
+        level=logging.INFO, stream=sys.stdout,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s", force=True,
+    )
+
+
+# one line per event: the app writes its own line per request (method, path, status, request id), so the
+# server's access line would be a second one for the same request.
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 
 def honest_openapi(app: FastAPI):
@@ -60,6 +76,7 @@ def honest_openapi(app: FastAPI):
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
+    configure_logging()
     settings = settings or Settings()
     engine = make_engine(settings.database_url)
 
@@ -68,6 +85,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         init_db(engine)
         with app.state.sessionmaker() as session:
             seed(session, settings.seed_dir)
+        log.info(
+            "ready host=%s port=%s database=%s default_quote_minutes=%s small_party_upgrade=%s",
+            settings.host, settings.port, settings.database_url, settings.default_quote_minutes,
+            settings.small_party_upgrade,
+        )
         yield
         engine.dispose()
 
@@ -80,6 +102,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def request_id_and_log(request: Request, call_next):
         request.state.request_id = uuid.uuid4().hex[:12]
         response = await call_next(request)
+        log.info(
+            "request method=%s path=%s status=%s request_id=%s",
+            request.method, request.url.path, response.status_code, request.state.request_id,
+        )
         return response
 
     install_handlers(app)

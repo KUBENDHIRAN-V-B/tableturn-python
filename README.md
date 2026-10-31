@@ -16,6 +16,7 @@ A restaurant waitlist for Kothari's, Baner: parties are quoted a wait, seated by
 | The API | Routers per resource, one error shape for every error, docs that list what each endpoint can answer |
 | Rules | `tests/rules.csv` — the rule table under all three `SMALL_PARTY_UPGRADE` settings; `GET /settings` |
 | The image | A Dockerfile; the app binds `HOST=0.0.0.0`, so the floor is reachable from the kitchen screen |
+| Running it | Data on a volume, every setting from an env-file, `.dockerignore`, logs on stdout |
 
 ## Run it
 
@@ -26,6 +27,13 @@ docker build -t tableturn .
 docker run -p 8080:8080 tableturn
 ```
 
+For the till PC, run it with the database on a named volume and the settings from the env-file — copy
+`.env.example` to `.env` first:
+
+```bash
+docker run -d --name tableturn -p 8080:8080 -v tableturn-data:/data --env-file .env tableturn
+```
+
 ## How the image starts
 
 The image starts the app with
@@ -34,19 +42,43 @@ The image starts the app with
 CMD ["sh", "-c", "exec uvicorn tableturn.app:app --host \"$HOST\" --port \"$PORT\""]
 ```
 
-so `HOST` and `PORT` come from the environment: the image sets `HOST=0.0.0.0` and `PORT=8080`.
+so `HOST` and `PORT` come from the environment: the image sets `HOST=0.0.0.0` and `PORT=8080`, and the env-file can
+change them without a rebuild. `DATABASE_URL` is not baked into the image; the env-file points it at the volume.
 
 Open `http://<till-pc-ip>:8080/` from the kitchen screen — the floor, the waitlist, one party, the rule book, the API
-and the runtime, with a walkthrough. Docs at `/docs`, health at `/healthz`.
+and the runtime, with a walkthrough. Docs at `/docs`, health at `/healthz`, logs with
+`docker logs -f tableturn`.
+
+The nightly power cut: `docker rm -f tableturn`, then the same `docker run` — every party and their quoted time
+are still on the list, because the database lives on the `tableturn-data` volume. To change a rule, edit one line of
+the env-file and run the container again; no rebuild:
+
+```
+DATABASE_URL=sqlite:////data/tableturn.db
+DEFAULT_QUOTE_MINUTES=40
+SMALL_PARTY_UPGRADE=when_nobody_larger_waits     # never | when_nobody_larger_waits | always
+SEED_DIR=seed
+HOST=0.0.0.0
+PORT=8080
+```
 
 ## Verified on this build
 
 Docker is not installed in the build workspace, so image build, host-to-container networking, browser walkthrough, and the runtime transcript below still need to be recorded on a Docker machine. Do not treat example IDs or timestamps as a verified run.
 
 - The Python test suite is run with `python -m pytest`.
+- Run on the Docker machine: record date, Docker version, image tag, host port <port>, a named
+  volume and a copy of `.env.example` as the env-file.
 - After building, record the actual date, Docker version, image tag, port, image size and byte count here.
 - Verify `GET /healthz` from the host and another container; verify `GET /branches/Baner/tables` returns 200 with 22 tables.
-- Exercise join → seat → leave → clear and record the generated IDs and table numbers.
+- Exercise join → seat → leave → clear and record the generated IDs and table numbers. Then `docker rm -f` and the same `docker run` on the same volume: `GET /parties/<first id>..<last id>`
+  and the seated tables compared byte for byte before and after — unchanged.
+- `DEFAULT_QUOTE_MINUTES=30` in a copy of the env-file, container re-run: `GET /settings` →
+  `{"default_quote_minutes":30,…}`; a new party is quoted 30, the parties already on the list keep 40. `PORT=9000` in
+  another copy (mapped `-p <port>:9000`): the app logs `ready host=0.0.0.0 port=9000` and answers — no rebuild.
+- `docker logs`: one line per request (`request method=POST path=/waitlist status=201 request_id=…`) and one per
+  event (`event kind=joined party_id=<id> seating_id=- branch=Baner`); no guest name or phone number appears.
+- `docker diff <container>` shows only `A /data` (the volume mount point) — nothing written under `/app`.
 - Check the image's pinned packages and confirm it contains no tests, local database, or bytecode cache.
 
 ## Run it locally
@@ -103,7 +135,7 @@ seat a two at a four-top while a four is waiting → 409 overtaking with `must_s
 - [x] Ticket 7 · One file becomes an app
 - [x] Ticket 8 · The rule table, and then the rule changes
 - [x] Ticket 9 · It runs on the machine by the till
-- [ ] Ticket 10 · It survives the nightly power cut
+- [x] Ticket 10 · It survives the nightly power cut
 
 Built by KUBENDHIRAN V B on [LearnTube Guided Projects](https://guidedprojects.learntube.ai).
 <!-- learntube:end -->
