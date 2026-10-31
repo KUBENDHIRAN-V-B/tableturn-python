@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from ..ids import party_public, seating_public
 from ..models import Party
-from ..schemas import SeatIn, SeatOut
+from ..schemas import ClearOut, LeaveOut, SeatIn, SeatOut
 from ..services import seatings
 from ..services.seed import BRANCH
 from ..services.tables import get_branch
@@ -26,3 +26,21 @@ def seat(body: SeatIn, session: SessionDep, clock: ClockDep) -> SeatOut:
         seated_at=seating.seated_at,
         waited_minutes=session.get(Party, seating.party_id).waited_minutes,
     )
+
+
+@router.post(
+    "/{seating_id}/leave",
+    response_model=LeaveOut,
+)
+def leave(seating_id: str, session: SessionDep, clock: ClockDep) -> LeaveOut:
+    seating = seatings.leave(session, get_branch(session, BRANCH[0]), seating_id, clock)
+    return LeaveOut(seating_id=seating_public(seating.id), left_at=seating.left_at)
+
+
+@router.post(
+    "/{seating_id}/clear",
+    response_model=ClearOut,
+)
+def clear(seating_id: str, session: SessionDep, clock: ClockDep) -> ClearOut:
+    seating, table = seatings.clear(session, get_branch(session, BRANCH[0]), seating_id, clock)
+    return ClearOut(seating_id=seating_public(seating.id), table=table.no, turn_minutes=seating.turn_minutes, cleared_at=seating.cleared_at)
