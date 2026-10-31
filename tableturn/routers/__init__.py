@@ -1,3 +1,5 @@
+"""One router per resource. Dependencies shared by the resource routers."""
+
 from collections.abc import Iterator
 from typing import Annotated
 from fastapi import Depends, Request

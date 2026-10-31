@@ -67,3 +67,5 @@ VALIDATION_QUERY = (400, "/errors/validation", "Invalid filter value")
 NOT_FOUND = (404, "/errors/not-found", "No such resource")
 METHOD_NOT_ALLOWED = (405, "/errors/method-not-allowed", "Method not allowed")
 HTTP = "/errors/http"
+
+INTERNAL = (500, "/errors/internal", "Something went wrong")
