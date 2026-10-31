@@ -1,0 +1,24 @@
+from datetime import datetime, timezone
+from fastapi.testclient import TestClient
+from tableturn.app import create_app
+from tableturn.clock import FixedClock, SystemClock, get_clock
+from tests.conftest import join, make_settings
+
+def test_join_quotes_the_setting_at_the_fixed_clock(client):
+    body = join(client, 6)
+    assert body["quoted_minutes"] == 40 and body["quoted_at"] == "2026-09-27T19:10:00Z"
+
+def test_the_quote_is_the_setting(tmp_path, clock):
+    app = create_app(make_settings(tmp_path, default_quote_minutes=30))
+    app.dependency_overrides[get_clock] = lambda: clock
+    with TestClient(app) as c:
+        assert join(c, 2)["quoted_minutes"] == 30
+
+def test_the_clock_is_a_dependency_a_test_overrides(tmp_path):
+    assert isinstance(get_clock(), SystemClock)
+    at = datetime(2031, 1, 2, 3, 4, tzinfo=timezone.utc)
+    app = create_app(make_settings(tmp_path))
+    app.dependency_overrides[get_clock] = lambda: FixedClock(at)
+    with TestClient(app) as c:
+        body = join(c, 2)
+    assert body["joined_at"] == body["quoted_at"] == "2031-01-02T03:04:00Z"

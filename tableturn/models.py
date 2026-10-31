@@ -1,5 +1,5 @@
 """Tables. A dining table's state is derived from its current seating; there is deliberately no `state`
-column on tables."""
+column on tables. The real wait is stamped once and never recomputed."""
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String
@@ -24,8 +24,8 @@ class DiningTable(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"))
     no: Mapped[str] = mapped_column(String(8))
-    seats: Mapped[int] = mapped_column(Integer)  # 2 | 4 | 6
-    section: Mapped[str] = mapped_column(String(16))  # Window | Garden | Indoor
+    seats: Mapped[int] = mapped_column(Integer)
+    section: Mapped[str] = mapped_column(String(16))
     current_seating_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cleared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -38,6 +38,9 @@ class Party(Base):
     name: Mapped[str] = mapped_column(String(60))
     covers: Mapped[int] = mapped_column(Integer)
     phone: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    state: Mapped[str] = mapped_column(String(12))  # waiting | seated | left | cleared
+    state: Mapped[str] = mapped_column(String(12))
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     position: Mapped[int] = mapped_column(Integer)
+    quoted_minutes: Mapped[int] = mapped_column(Integer)
+    quoted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    waited_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
