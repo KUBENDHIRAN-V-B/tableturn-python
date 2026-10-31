@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from ..errors import (
     AlreadyCleared, AlreadyLeft, AlreadySeated, NoSuchParty, NoSuchSeating,
-    NoSuchTable, NotLeftYet, TableNotCleared, TableTooSmall,
+    NoSuchTable, NotLeftYet, Overtaking, TableNotCleared, TableTooSmall,
 )
 from ..handlers import VALIDATION_RESPONSE, responses
 
@@ -12,7 +12,7 @@ from ..schemas import ClearOut, LeaveOut, SeatIn, SeatOut
 from ..services import seatings
 from ..services.seed import BRANCH
 from ..services.tables import get_branch
-from . import ClockDep, SessionDep
+from . import ClockDep, SessionDep, SettingsDep
 
 router = APIRouter(prefix="/seatings", tags=["seatings"])
 
@@ -26,13 +26,14 @@ router = APIRouter(prefix="/seatings", tags=["seatings"])
         (TableTooSmall, "T11 seats 4; the party has 6 covers"),
         (AlreadySeated, "W031 is already seated (state seated)"),
         (TableNotCleared, "T12 has not been cleared since W030 left"),
+        (Overtaking, "W029 (4) is waiting and fits T11; seat them first", {"must_seat_first": "W029"}),
         (NoSuchParty, "There is no party 'W999' on the Baner list"),
         (NoSuchTable, "There is no table 'T99' in branch Baner"),
     ), **VALIDATION_RESPONSE},
 )
-def seat(body: SeatIn, session: SessionDep, clock: ClockDep) -> SeatOut:
+def seat(body: SeatIn, session: SessionDep, clock: ClockDep, settings: SettingsDep) -> SeatOut:
     branch = get_branch(session, BRANCH[0])
-    seating = seatings.seat(session, branch, body.party_id, body.table, clock)
+    seating = seatings.seat(session, branch, body.party_id, body.table, clock, settings)
     return SeatOut(
         seating_id=seating_public(seating.id),
         party_id=party_public(seating.party_id),

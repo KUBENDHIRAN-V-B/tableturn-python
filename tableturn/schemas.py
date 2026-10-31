@@ -6,6 +6,7 @@ Section = Literal["Window", "Garden", "Indoor"]
 TableState = Literal["free", "seated", "uncleared"]
 PartyState = Literal["waiting", "seated", "left", "cleared"]
 EventKind = Literal["joined", "quoted", "seated", "left", "cleared"]
+Upgrade = Literal["never", "when_nobody_larger_waits", "always"]
 
 def _iso_z(dt: datetime) -> str:
     if dt.tzinfo is None:
@@ -93,3 +94,9 @@ class ClearOut(BaseModel):
     table: str
     turn_minutes: int
     cleared_at: UtcZ
+
+
+class SettingsOut(BaseModel):
+    default_quote_minutes: int
+    small_party_upgrade: Upgrade
+    max_covers: int

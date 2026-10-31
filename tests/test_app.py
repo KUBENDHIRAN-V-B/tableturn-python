@@ -1,4 +1,3 @@
-"""Modular routers, docs that list every error an endpoint can really answer, one handler for every error body."""
 import json
 import logging
 import subprocess
@@ -17,10 +16,11 @@ EXPECTED = {
     ("/branches/{branch}/tables", "get"): ("tables", {"400": {"/errors/validation"}, "404": {"/errors/no-such-branch"}}),
     ("/branches/{branch}/tables/{no}", "get"): ("tables", {"404": {"/errors/no-such-branch", "/errors/no-such-table"}}),
     ("/waitlist", "post"): ("waitlist", {"400": {"/errors/party-too-big"}, "422": {"/errors/validation"}}),
-    ("/seatings", "post"): ("seatings", {"404": {"/errors/no-such-party", "/errors/no-such-table"}, "409": {"/errors/table-too-small", "/errors/already-seated", "/errors/table-not-cleared"}, "422": {"/errors/validation"}}),
+    ("/seatings", "post"): ("seatings", {"404": {"/errors/no-such-party", "/errors/no-such-table"}, "409": {"/errors/table-too-small", "/errors/already-seated", "/errors/table-not-cleared", "/errors/overtaking"}, "422": {"/errors/validation"}}),
     ("/seatings/{seating_id}/leave", "post"): ("seatings", {"404": {"/errors/no-such-seating"}, "409": {"/errors/already-left"}}),
     ("/seatings/{seating_id}/clear", "post"): ("seatings", {"404": {"/errors/no-such-seating"}, "409": {"/errors/not-left-yet", "/errors/already-cleared"}}),
     ("/parties/{party_id}", "get"): ("parties", {"404": {"/errors/no-such-party"}}),
+    ("/settings", "get"): ("settings", {}),
 }
 
 
@@ -45,7 +45,7 @@ def test_every_refusal_is_documented_with_a_problem_example(client):
     seatings = spec["paths"]["/seatings"]["post"]["responses"]
     assert {"404", "409", "422"} <= set(seatings)
     examples = seatings["409"]["content"][PROBLEM]["examples"]
-    assert {"/errors/table-too-small", "/errors/already-seated", "/errors/table-not-cleared"} <= set(examples)
+    assert {"/errors/table-too-small", "/errors/already-seated", "/errors/table-not-cleared", "/errors/overtaking"} <= set(examples)
     assert examples["/errors/table-too-small"]["value"]["status"] == 409
     assert {"/errors/no-such-party", "/errors/no-such-table"} <= set(seatings["404"]["content"][PROBLEM]["examples"])
     for (path, method), (_, expected) in EXPECTED.items():

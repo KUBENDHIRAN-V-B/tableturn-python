@@ -19,6 +19,7 @@ def make_settings(tmp_path: Path, **overrides) -> Settings:
         "database_url": f"sqlite:///{db}",
         "seed_dir": str(ROOT / "seed"),
         "default_quote_minutes": 40,
+        "small_party_upgrade": "when_nobody_larger_waits",
     }
     values.update(overrides)
     return Settings(_env_file=None, **values)

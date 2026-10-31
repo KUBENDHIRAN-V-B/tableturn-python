@@ -11,12 +11,14 @@ from ..errors import (
     NoSuchParty,
     NoSuchSeating,
     NoSuchTable,
+    Overtaking,
     NotLeftYet,
     TableNotCleared,
     TableTooSmall,
 )
 from ..ids import party_internal, party_public, seating_internal
 from ..models import Branch, DiningTable, Party, Seating
+from ..settings import Settings
 from . import events
 
 
@@ -43,7 +45,7 @@ def _seating(session: Session, branch: Branch, public_id: str) -> Seating:
     return seating
 
 
-def seat(session: Session, branch: Branch, party_public_id: str, table_no: str, clock: Clock) -> Seating:
+def seat(session: Session, branch: Branch, party_public_id: str, table_no: str, clock: Clock, settings: Settings) -> Seating:
     # The order of checks is fixed so that a test can target each refusal — party, table, already seated,
     # cleared, fits.
     party = _party(session, branch, party_public_id)
@@ -57,6 +59,24 @@ def seat(session: Session, branch: Branch, party_public_id: str, table_no: str, 
         raise TableNotCleared(f"{table.no} has not been cleared since {party_public(current.party_id)} left")
     if table.seats < party.covers:
         raise TableTooSmall(f"{table.no} seats {table.seats}; the party has {party.covers} covers")
+
+    if table.seats > party.covers and settings.small_party_upgrade != "always":
+        larger = session.scalar(
+            select(Party).where(
+                Party.branch_id == branch.id,
+                Party.state == "waiting",
+                Party.covers > party.covers,
+                Party.covers <= table.seats,
+            ).order_by(Party.position, Party.joined_at, Party.id)
+        )
+        if settings.small_party_upgrade == "never" or larger is not None:
+            extra = {"must_seat_first": party_public(larger.id)} if larger is not None and settings.small_party_upgrade != "never" else {}
+            detail = (
+                f"{party_public(larger.id)} ({larger.covers}) is waiting and fits {table.no}; seat them first"
+                if larger is not None and settings.small_party_upgrade != "never"
+                else f"A party of {party.covers} may not take {table.no} ({table.seats}-top) under the current rule"
+            )
+            raise Overtaking(detail, **extra)
 
     now = clock.now()
     seating = Seating(branch_id=branch.id, party_id=party.id, table_id=table.id, seated_at=now)
