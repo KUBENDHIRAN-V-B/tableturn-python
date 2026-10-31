@@ -1,4 +1,3 @@
-"""Leave then clear — turn time is what the table earned, the clear is one transaction, both are idempotent by refusal."""
 from sqlalchemy import select, text
 
 from tableturn.models import DiningTable, Party, Seating
